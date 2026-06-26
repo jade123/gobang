@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>局域网五子棋</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <h1>局域网五子棋</h1>
+          <p id="lanAddress">正在读取局域网地址...</p>
+        </div>
+        <button id="copyAddress" class="ghost" type="button">复制地址</button>
+      </section>
+
+      <section id="joinPanel" class="join-panel">
+        <form id="joinForm" class="join-form">
+          <label for="nickname">昵称</label>
+          <div class="join-row">
+            <input id="nickname" name="nickname" maxlength="18" autocomplete="nickname" placeholder="输入你的名字" />
+            <button type="submit">进入大厅</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="appPanel" class="layout hidden">
+        <aside class="sidebar">
+          <div class="me-card">
+            <span class="label">我</span>
+            <strong id="myName">未登录</strong>
+            <span id="myStatus">大厅中</span>
+          </div>
+
+          <div class="panel-head">
+            <h2>在线玩家</h2>
+            <span id="onlineCount">0</span>
+          </div>
+          <div id="playersList" class="players-list"></div>
+        </aside>
+
+        <section class="game-area">
+          <div class="game-head">
+            <div>
+              <h2 id="gameTitle">等待邀请</h2>
+              <p id="gameHint">选择一位在线玩家，邀请他开始比赛。</p>
+            </div>
+            <button id="resignButton" class="danger hidden" type="button">认输</button>
+          </div>
+
+          <div class="board-wrap">
+            <div id="board" class="board" aria-label="五子棋棋盘"></div>
+          </div>
+
+          <div id="inviteBox" class="invite-box hidden">
+            <p id="inviteText"></p>
+            <div>
+              <button id="acceptInvite" type="button">接受</button>
+              <button id="declineInvite" class="ghost" type="button">拒绝</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <div id="toast" class="toast hidden"></div>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

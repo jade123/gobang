@@ -1,0 +1,12 @@
+{
+  "name": "lan-gomoku",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A LAN Gomoku game with online players and match invitations.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
