@@ -30,8 +30,19 @@ const elements = {
   toast: document.querySelector("#toast")
 };
 
+const appBaseUrl = new URL(".", window.location.href);
+
+function appPath(path) {
+  const url = new URL(String(path).replace(/^\//, ""), appBaseUrl);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function appAddress() {
+  return appBaseUrl.href;
+}
+
 async function api(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await fetch(appPath(path), {
     method: options.method || "GET",
     headers: {
       "content-type": "application/json",
@@ -58,8 +69,8 @@ function showToast(message) {
 
 function setAddresses(addresses) {
   state.addresses = addresses || [];
-  const current = `${location.protocol}//${location.host}`;
-  const address = state.addresses[0] || current;
+  const current = appAddress();
+  const address = location.pathname === "/" ? state.addresses[0] || current : current;
   elements.lanAddress.textContent = `访问地址：${address}`;
 }
 
@@ -203,7 +214,7 @@ function render() {
 function connectEvents() {
   if (state.eventSource) state.eventSource.close();
 
-  state.eventSource = new EventSource(`/events?playerId=${encodeURIComponent(state.me.id)}`);
+  state.eventSource = new EventSource(appPath(`events?playerId=${encodeURIComponent(state.me.id)}`));
   state.eventSource.addEventListener("peers", event => {
     const payload = JSON.parse(event.data);
     state.players = payload.players;
@@ -320,7 +331,7 @@ elements.acceptInvite.addEventListener("click", () => respondInvite(true));
 elements.declineInvite.addEventListener("click", () => respondInvite(false));
 elements.resignButton.addEventListener("click", resign);
 elements.copyAddress.addEventListener("click", async () => {
-  const address = state.addresses[0] || `${location.protocol}//${location.host}`;
+  const address = location.pathname === "/" ? state.addresses[0] || appAddress() : appAddress();
   try {
     await navigator.clipboard.writeText(address);
     showToast("地址已复制");
@@ -332,12 +343,12 @@ elements.copyAddress.addEventListener("click", async () => {
 window.addEventListener("beforeunload", () => {
   if (!state.me) return;
   navigator.sendBeacon(
-    "/api/leave",
+    appPath("api/leave"),
     new Blob([JSON.stringify({ playerId: state.me.id })], { type: "application/json" })
   );
 });
 
-api("/api/config")
+api("api/config")
   .then(config => {
     state.boardSize = config.boardSize;
     setAddresses(config.addresses);
