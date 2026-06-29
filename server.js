@@ -5,6 +5,7 @@ const path = require("path");
 const crypto = require("crypto");
 
 const PORT = Number(process.env.PORT || 5173);
+const HOST = process.env.HOST || "0.0.0.0";
 const PUBLIC_DIR = path.join(__dirname, "public");
 const BOARD_SIZE = 15;
 
@@ -486,7 +487,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, "0.0.0.0", () => {
+server.listen(PORT, HOST, () => {
   const addresses = publicAddresses();
   console.log(`LAN Gomoku is running at http://localhost:${PORT}`);
   if (addresses.length) {
