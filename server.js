@@ -326,16 +326,16 @@ function createGame(blackId, whiteId) {
   return game;
 }
 
-function createComputerGame(playerId) {
+function createAiGame(playerId) {
   const player = players.get(playerId);
   const computerId = id("computer");
   const game = {
     id: id("game"),
-    mode: "computer",
+    mode: "ai",
     board: makeBoard(),
     players: [playerId, computerId],
     computerId,
-    computerName: "电脑",
+    computerName: "AI",
     stones: {
       [playerId]: "black",
       [computerId]: "white"
@@ -450,7 +450,10 @@ async function handleApi(req, res) {
     return;
   }
 
-  if (req.method === "POST" && url.pathname === "/api/computer/start") {
+  if (
+    req.method === "POST" &&
+    (url.pathname === "/api/ai/start" || url.pathname === "/api/computer/start")
+  ) {
     const body = await readBody(req);
     const player = players.get(body.playerId);
     if (!player) {
@@ -462,7 +465,7 @@ async function handleApi(req, res) {
       return;
     }
 
-    const game = createComputerGame(player.id);
+    const game = createAiGame(player.id);
     sendJson(res, 200, { game: gameView(game) });
     return;
   }

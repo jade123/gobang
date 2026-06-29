@@ -147,7 +147,7 @@ function renderGame() {
 
   if (!game) {
     elements.gameTitle.textContent = "等待邀请";
-    elements.gameHint.textContent = "选择在线玩家邀请对战，或开启电脑模式。";
+    elements.gameHint.textContent = "选择在线玩家邀请对战，或开启 AI 模式。";
   } else if (game.finished) {
     const winnerText =
       game.reason === "draw"
@@ -167,8 +167,10 @@ function renderGame() {
     const turnMine = game.turn === state.me.id;
     elements.gameTitle.textContent = turnMine ? "轮到你落子" : `等待 ${playerName(game.turn)} 落子`;
     elements.gameHint.textContent =
-      game.mode === "computer"
-        ? `电脑模式，你执${mine === "black" ? "黑" : "白"}，黑棋先行。`
+      game.mode === "ai"
+        ? game.lastMove && game.lastMove.playerId !== state.me.id
+          ? `AI 已自动落子。你执${mine === "black" ? "黑" : "白"}，继续下。`
+          : `AI 模式，你执${mine === "black" ? "黑" : "白"}，黑棋先行。`
         : `你执${mine === "black" ? "黑" : "白"}，黑棋先行。`;
   }
 
@@ -299,12 +301,12 @@ async function respondInvite(accepted) {
 async function startComputerMode() {
   if (!state.me) return;
   try {
-    const data = await api("/api/computer/start", {
+    const data = await api("/api/ai/start", {
       method: "POST",
       body: { playerId: state.me.id }
     });
     state.game = data.game;
-    showToast("电脑模式已开始");
+    showToast("AI模式已开始");
     render();
   } catch (error) {
     showToast(error.message);
