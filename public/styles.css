@@ -252,24 +252,9 @@ input:focus {
   display: grid;
   grid-template-columns: repeat(15, 1fr);
   grid-template-rows: repeat(15, 1fr);
-  padding: 2.4%;
+  padding: 4.4%;
   border-radius: 8px;
   background:
-    linear-gradient(var(--board-line), var(--board-line)) 50% 50% / 93.2% 1px no-repeat,
-    repeating-linear-gradient(
-      to right,
-      transparent 0,
-      transparent calc((100% - 4.8%) / 14 - 1px),
-      rgba(95, 69, 39, 0.82) calc((100% - 4.8%) / 14 - 1px),
-      rgba(95, 69, 39, 0.82) calc((100% - 4.8%) / 14)
-    ),
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent calc((100% - 4.8%) / 14 - 1px),
-      rgba(95, 69, 39, 0.82) calc((100% - 4.8%) / 14 - 1px),
-      rgba(95, 69, 39, 0.82) calc((100% - 4.8%) / 14)
-    ),
     radial-gradient(circle at 25% 25%, rgba(255, 243, 195, 0.58), transparent 28%),
     var(--board);
   box-shadow:
@@ -289,10 +274,78 @@ input:focus {
   box-shadow: none;
 }
 
+.cell::before,
+.cell::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  background: rgba(95, 69, 39, 0.88);
+  pointer-events: none;
+}
+
+.cell::before {
+  left: 0;
+  top: calc(50% - 0.5px);
+  width: 100%;
+  height: 1px;
+}
+
+.cell::after {
+  left: calc(50% - 0.5px);
+  top: 0;
+  width: 1px;
+  height: 100%;
+}
+
+.cell.edge-left::before {
+  left: 50%;
+  width: 50%;
+}
+
+.cell.edge-right::before {
+  width: 50%;
+}
+
+.cell.edge-top::after {
+  top: 50%;
+  height: 50%;
+}
+
+.cell.edge-bottom::after {
+  height: 50%;
+}
+
 .cell:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.2);
   box-shadow: none;
   transform: none;
+}
+
+.cell:disabled {
+  opacity: 1;
+}
+
+.star-point,
+.move-mark,
+.stone {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 2;
+}
+
+.star-point {
+  width: 15%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(95, 69, 39, 0.9);
+}
+
+.move-mark {
+  position: absolute;
+  width: 16%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #d94a38;
 }
 
 .stone {
@@ -310,15 +363,6 @@ input:focus {
 
 .stone.white {
   background: radial-gradient(circle at 32% 26%, #fff, #e7e1d4 62%, #cfc7bb);
-}
-
-.cell.last::after {
-  content: "";
-  width: 18%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: #d94a38;
-  position: absolute;
 }
 
 .invite-box,

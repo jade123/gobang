@@ -107,6 +107,16 @@ function playerName(playerId) {
   return state.players.find(player => player.id === playerId)?.name || "对手";
 }
 
+function isStarPoint(row, col) {
+  return (
+    (row === 3 && col === 3) ||
+    (row === 3 && col === 11) ||
+    (row === 7 && col === 7) ||
+    (row === 11 && col === 3) ||
+    (row === 11 && col === 11)
+  );
+}
+
 function renderGame() {
   elements.board.innerHTML = "";
   const game = state.game;
@@ -146,8 +156,19 @@ function renderGame() {
       const cell = document.createElement("button");
       cell.type = "button";
       cell.className = "cell";
+      if (row === 0) cell.classList.add("edge-top");
+      if (row === state.boardSize - 1) cell.classList.add("edge-bottom");
+      if (col === 0) cell.classList.add("edge-left");
+      if (col === state.boardSize - 1) cell.classList.add("edge-right");
+      if (isStarPoint(row, col)) cell.classList.add("star");
       cell.setAttribute("aria-label", `${row + 1} 行 ${col + 1} 列`);
       const value = board[row][col];
+
+      if (isStarPoint(row, col)) {
+        const star = document.createElement("span");
+        star.className = "star-point";
+        cell.append(star);
+      }
 
       if (value) {
         const stone = document.createElement("span");
@@ -157,6 +178,9 @@ function renderGame() {
 
       if (game?.lastMove?.row === row && game?.lastMove?.col === col) {
         cell.classList.add("last");
+        const mark = document.createElement("span");
+        mark.className = "move-mark";
+        cell.append(mark);
       }
 
       cell.disabled = !playing || game.turn !== state.me?.id || Boolean(value);
