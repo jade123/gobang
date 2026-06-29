@@ -17,6 +17,7 @@ const elements = {
   appPanel: document.querySelector("#appPanel"),
   myName: document.querySelector("#myName"),
   myStatus: document.querySelector("#myStatus"),
+  computerModeButton: document.querySelector("#computerModeButton"),
   onlineCount: document.querySelector("#onlineCount"),
   playersList: document.querySelector("#playersList"),
   gameTitle: document.querySelector("#gameTitle"),
@@ -69,9 +70,11 @@ function showToast(message) {
 
 function setAddresses(addresses) {
   state.addresses = addresses || [];
-  const current = appAddress();
-  const address = location.pathname === "/" ? state.addresses[0] || current : current;
-  elements.lanAddress.textContent = `访问地址：${address}`;
+  if (elements.lanAddress) {
+    const current = appAddress();
+    const address = location.pathname === "/" ? state.addresses[0] || current : current;
+    elements.lanAddress.textContent = `访问地址：${address}`;
+  }
 }
 
 function renderPlayers() {
@@ -115,7 +118,11 @@ function myStone() {
 
 function playerName(playerId) {
   if (playerId === state.me?.id) return state.me.name;
-  return state.players.find(player => player.id === playerId)?.name || "对手";
+  return (
+    state.game?.players.find(player => player.id === playerId)?.name ||
+    state.players.find(player => player.id === playerId)?.name ||
+    "对手"
+  );
 }
 
 function isStarPoint(row, col) {
@@ -135,11 +142,12 @@ function renderGame() {
   const mine = myStone();
 
   elements.resignButton.classList.toggle("hidden", !playing);
+  elements.computerModeButton.disabled = Boolean(playing);
   elements.myStatus.textContent = playing ? `对局中，执${mine === "black" ? "黑" : "白"}` : "大厅中";
 
   if (!game) {
     elements.gameTitle.textContent = "等待邀请";
-    elements.gameHint.textContent = "选择一位在线玩家，邀请他开始比赛。";
+    elements.gameHint.textContent = "选择在线玩家邀请对战，或开启电脑模式。";
   } else if (game.finished) {
     const winnerText =
       game.reason === "draw"
@@ -158,7 +166,10 @@ function renderGame() {
   } else {
     const turnMine = game.turn === state.me.id;
     elements.gameTitle.textContent = turnMine ? "轮到你落子" : `等待 ${playerName(game.turn)} 落子`;
-    elements.gameHint.textContent = `你执${mine === "black" ? "黑" : "白"}，黑棋先行。`;
+    elements.gameHint.textContent =
+      game.mode === "computer"
+        ? `电脑模式，你执${mine === "black" ? "黑" : "白"}，黑棋先行。`
+        : `你执${mine === "black" ? "黑" : "白"}，黑棋先行。`;
   }
 
   const board = game?.board || Array.from({ length: state.boardSize }, () => Array(state.boardSize).fill(null));
@@ -285,6 +296,21 @@ async function respondInvite(accepted) {
   }
 }
 
+async function startComputerMode() {
+  if (!state.me) return;
+  try {
+    const data = await api("/api/computer/start", {
+      method: "POST",
+      body: { playerId: state.me.id }
+    });
+    state.game = data.game;
+    showToast("电脑模式已开始");
+    render();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
 async function placeStone(row, col) {
   if (!state.game) return;
   try {
@@ -330,15 +356,18 @@ elements.joinForm.addEventListener("submit", event => {
 elements.acceptInvite.addEventListener("click", () => respondInvite(true));
 elements.declineInvite.addEventListener("click", () => respondInvite(false));
 elements.resignButton.addEventListener("click", resign);
-elements.copyAddress.addEventListener("click", async () => {
-  const address = location.pathname === "/" ? state.addresses[0] || appAddress() : appAddress();
-  try {
-    await navigator.clipboard.writeText(address);
-    showToast("地址已复制");
-  } catch {
-    showToast(address);
-  }
-});
+elements.computerModeButton.addEventListener("click", startComputerMode);
+if (elements.copyAddress) {
+  elements.copyAddress.addEventListener("click", async () => {
+    const address = location.pathname === "/" ? state.addresses[0] || appAddress() : appAddress();
+    try {
+      await navigator.clipboard.writeText(address);
+      showToast("地址已复制");
+    } catch {
+      showToast(address);
+    }
+  });
+}
 
 window.addEventListener("beforeunload", () => {
   if (!state.me) return;
@@ -355,7 +384,9 @@ api("api/config")
     renderGame();
   })
   .catch(() => {
-    elements.lanAddress.textContent = `访问地址：${location.protocol}//${location.host}`;
+    if (elements.lanAddress) {
+      elements.lanAddress.textContent = `访问地址：${location.protocol}//${location.host}`;
+    }
   });
 
 elements.nickname.value = localStorage.getItem("lan-gomoku-name") || "";

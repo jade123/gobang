@@ -169,6 +169,11 @@ input:focus {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: white;
+  margin-bottom: 12px;
+}
+
+.mode-actions {
+  display: grid;
   margin-bottom: 18px;
 }
 

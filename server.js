@@ -8,6 +8,12 @@ const PORT = Number(process.env.PORT || 5173);
 const HOST = process.env.HOST || "0.0.0.0";
 const PUBLIC_DIR = path.join(__dirname, "public");
 const BOARD_SIZE = 15;
+const DIRECTIONS = [
+  [1, 0],
+  [0, 1],
+  [1, 1],
+  [1, -1]
+];
 
 const players = new Map();
 const games = new Map();
@@ -107,9 +113,7 @@ function cleanPlayer(playerId) {
   if (player.gameId) {
     const game = games.get(player.gameId);
     if (game && !game.finished) {
-      game.finished = true;
-      game.winner = game.players.find(idValue => idValue !== playerId);
-      game.reason = "opponent-left";
+      finishGame(game, game.players.find(idValue => idValue !== playerId), "opponent-left");
       notifyGame(game);
     }
   }
@@ -131,12 +135,13 @@ function makeBoard() {
 function gameView(game) {
   return {
     id: game.id,
+    mode: game.mode || "lan",
     board: game.board,
     players: game.players.map(playerId => {
       const player = players.get(playerId);
       return {
         id: playerId,
-        name: player ? player.name : "已离线",
+        name: player ? player.name : playerId === game.computerId ? game.computerName : "已离线",
         stone: game.stones[playerId]
       };
     }),
@@ -175,14 +180,7 @@ function countDirection(board, row, col, dr, dc, stone) {
 }
 
 function hasFive(board, row, col, stone) {
-  const directions = [
-    [1, 0],
-    [0, 1],
-    [1, 1],
-    [1, -1]
-  ];
-
-  return directions.some(([dr, dc]) => {
+  return DIRECTIONS.some(([dr, dc]) => {
     const total =
       1 +
       countDirection(board, row, col, dr, dc, stone) +
@@ -195,9 +193,119 @@ function isBoardFull(board) {
   return board.every(row => row.every(cell => cell));
 }
 
+function releaseGamePlayers(game) {
+  for (const playerId of game.players) {
+    const player = players.get(playerId);
+    if (player) player.gameId = null;
+  }
+}
+
+function finishGame(game, winner, reason) {
+  game.finished = true;
+  game.winner = winner;
+  game.reason = reason;
+  releaseGamePlayers(game);
+}
+
+function hasNeighbor(board, row, col) {
+  for (let dr = -2; dr <= 2; dr += 1) {
+    for (let dc = -2; dc <= 2; dc += 1) {
+      if (dr === 0 && dc === 0) continue;
+      const r = row + dr;
+      const c = col + dc;
+      if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c]) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function emptyCells(board) {
+  const cells = [];
+  for (let row = 0; row < BOARD_SIZE; row += 1) {
+    for (let col = 0; col < BOARD_SIZE; col += 1) {
+      if (!board[row][col]) cells.push({ row, col });
+    }
+  }
+  return cells;
+}
+
+function wouldWin(board, row, col, stone) {
+  board[row][col] = stone;
+  const wins = hasFive(board, row, col, stone);
+  board[row][col] = null;
+  return wins;
+}
+
+function scoreMove(board, row, col, stone) {
+  const center = Math.floor(BOARD_SIZE / 2);
+  let score = 18 - Math.abs(row - center) - Math.abs(col - center);
+
+  for (const [dr, dc] of DIRECTIONS) {
+    const total =
+      1 +
+      countDirection(board, row, col, dr, dc, stone) +
+      countDirection(board, row, col, -dr, -dc, stone);
+    score += total * total * total * total;
+  }
+
+  return score;
+}
+
+function findComputerMove(game) {
+  const cells = emptyCells(game.board);
+  const computerStone = game.stones[game.computerId];
+  const humanId = game.players.find(playerId => playerId !== game.computerId);
+  const humanStone = game.stones[humanId];
+
+  for (const cell of cells) {
+    if (wouldWin(game.board, cell.row, cell.col, computerStone)) return cell;
+  }
+
+  for (const cell of cells) {
+    if (wouldWin(game.board, cell.row, cell.col, humanStone)) return cell;
+  }
+
+  const candidates = cells.filter(cell => hasNeighbor(game.board, cell.row, cell.col));
+  const scopedCells = candidates.length ? candidates : [{ row: 7, col: 7 }];
+  let best = scopedCells[0];
+  let bestScore = -Infinity;
+
+  for (const cell of scopedCells) {
+    const attack = scoreMove(game.board, cell.row, cell.col, computerStone);
+    const defense = scoreMove(game.board, cell.row, cell.col, humanStone) * 0.92;
+    const score = attack + defense;
+    if (score > bestScore) {
+      best = cell;
+      bestScore = score;
+    }
+  }
+
+  return best;
+}
+
+function playComputerTurn(game) {
+  if (!game.computerId || game.finished || game.turn !== game.computerId) return;
+  const move = findComputerMove(game);
+  const stone = game.stones[game.computerId];
+
+  game.board[move.row][move.col] = stone;
+  game.lastMove = { row: move.row, col: move.col, playerId: game.computerId, stone };
+
+  if (hasFive(game.board, move.row, move.col, stone)) {
+    finishGame(game, game.computerId, "five");
+  } else if (isBoardFull(game.board)) {
+    finishGame(game, null, "draw");
+  } else {
+    game.turn = game.players.find(playerId => playerId !== game.computerId);
+  }
+}
+
 function createGame(blackId, whiteId) {
   const game = {
     id: id("game"),
+    mode: "lan",
     board: makeBoard(),
     players: [blackId, whiteId],
     stones: {
@@ -214,6 +322,33 @@ function createGame(blackId, whiteId) {
   games.set(game.id, game);
   players.get(blackId).gameId = game.id;
   players.get(whiteId).gameId = game.id;
+  notifyGame(game);
+  return game;
+}
+
+function createComputerGame(playerId) {
+  const player = players.get(playerId);
+  const computerId = id("computer");
+  const game = {
+    id: id("game"),
+    mode: "computer",
+    board: makeBoard(),
+    players: [playerId, computerId],
+    computerId,
+    computerName: "电脑",
+    stones: {
+      [playerId]: "black",
+      [computerId]: "white"
+    },
+    turn: playerId,
+    winner: null,
+    finished: false,
+    reason: null,
+    lastMove: null
+  };
+
+  games.set(game.id, game);
+  player.gameId = game.id;
   notifyGame(game);
   return game;
 }
@@ -315,6 +450,23 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/computer/start") {
+    const body = await readBody(req);
+    const player = players.get(body.playerId);
+    if (!player) {
+      sendJson(res, 404, { error: "玩家不在线" });
+      return;
+    }
+    if (player.gameId) {
+      sendJson(res, 409, { error: "你正在对局中" });
+      return;
+    }
+
+    const game = createComputerGame(player.id);
+    sendJson(res, 200, { game: gameView(game) });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/invite/respond") {
     const body = await readBody(req);
     const invite = invites.get(body.inviteId);
@@ -398,22 +550,12 @@ async function handleApi(req, res) {
       game.lastMove = { row, col, playerId: player.id, stone };
 
       if (hasFive(game.board, row, col, stone)) {
-        game.finished = true;
-        game.winner = player.id;
-        game.reason = "five";
-        player.gameId = null;
-        const opponentId = game.players.find(playerId => playerId !== player.id);
-        const opponent = players.get(opponentId);
-        if (opponent) opponent.gameId = null;
+        finishGame(game, player.id, "five");
       } else if (isBoardFull(game.board)) {
-        game.finished = true;
-        game.reason = "draw";
-        for (const playerId of game.players) {
-          const gamePlayer = players.get(playerId);
-          if (gamePlayer) gamePlayer.gameId = null;
-        }
+        finishGame(game, null, "draw");
       } else {
         game.turn = game.players.find(playerId => playerId !== player.id);
+        playComputerTurn(game);
       }
 
       notifyGame(game);
@@ -423,13 +565,7 @@ async function handleApi(req, res) {
 
     if (action === "resign") {
       if (!game.finished) {
-        game.finished = true;
-        game.winner = game.players.find(playerId => playerId !== player.id);
-        game.reason = "resign";
-        for (const playerId of game.players) {
-          const gamePlayer = players.get(playerId);
-          if (gamePlayer) gamePlayer.gameId = null;
-        }
+        finishGame(game, game.players.find(playerId => playerId !== player.id), "resign");
         notifyGame(game);
       }
       sendJson(res, 200, { game: gameView(game) });
